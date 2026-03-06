@@ -675,7 +675,7 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
   }
 
   // ================================================================
-  // BUSCAR NO JUSBRASIL (same-origin fetch)
+  // BUSCAR NO JUSBRASIL (same-origin fetch + DOM parsing)
   // ================================================================
   async function buscarJusBrasil(query) {
     const params = new URLSearchParams({ q: query });
@@ -692,71 +692,97 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
     if (!resp.ok) return [];
 
     const html = await resp.text();
-
-    const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!match) return [];
-
-    let nextData;
-    try { nextData = JSON.parse(match[1]); } catch (e) { return []; }
-
-    return extrairResultados(nextData);
+    return extrairResultadosDOM(html);
   }
 
-  function extrairResultados(nextData) {
+  function extrairResultadosDOM(html) {
     try {
-      const apolloState = nextData?.props?.pageProps?.__APOLLO_STATE__;
-      if (!apolloState) return [];
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
 
-      const rootQuery = apolloState["ROOT_QUERY"];
-      if (!rootQuery) return [];
+      const cards = doc.querySelectorAll("[data-doc-id]");
+      if (cards.length === 0) return [];
 
-      let items = [];
-      for (const key of Object.keys(rootQuery)) {
-        if (key.startsWith("searchHaystack")) {
-          const searchResult = rootQuery[key];
-          if (searchResult && searchResult.items) {
-            items = searchResult.items;
-            break;
+      const seenIds = new Set();
+      const items = [];
+
+      for (const card of cards) {
+        const docId = card.getAttribute("data-doc-id");
+        if (!docId || seenIds.has(docId)) continue;
+        seenIds.add(docId);
+
+        // Title + URL from h2 > a
+        const titleLink = card.querySelector("h2 a");
+        const title = titleLink?.textContent?.trim() || "";
+        const cardUrl = titleLink?.getAttribute("href") || "";
+
+        // Court from URL pattern: /jurisprudencia/COURT/ID
+        const courtMatch = cardUrl.match(/\/jurisprudencia\/([^/]+)\/\d+/);
+        const court = courtMatch ? courtMatch[1].toUpperCase() : "";
+
+        // Date from "publicado em DD/MM/YYYY"
+        const cardText = card.textContent || "";
+        const dateMatch = cardText.match(/publicado em (\d{2}\/\d{2}\/\d{4})/i);
+        const date = dateMatch ? dateMatch[1] : "";
+
+        // Type (Acordao, Decisao, Sentenca)
+        let type = "";
+        if (/Acórdão/i.test(cardText)) type = "ACORDAO";
+        else if (/Decisão\b/i.test(cardText)) type = "DECISAO";
+        else if (/Sentença/i.test(cardText)) type = "SENTENCA";
+
+        // Mandatory precedent
+        const isMandatory = /Precedente Obrigatório/i.test(cardText);
+
+        // Ementa / highlight from snippet-body or featured-mandatory
+        let bodyEl = card.querySelector('[class*="snippet-body"]');
+        let highlight = bodyEl ? bodyEl.innerHTML.trim() : "";
+        let plainFacts = bodyEl ? bodyEl.textContent.trim() : "";
+
+        // Fallback for "Precedente Obrigatório" cards with empty snippet-body
+        if (!plainFacts) {
+          const featuredEl = card.querySelector('[class*="featured-mandatory"]');
+          if (featuredEl) {
+            highlight = featuredEl.innerHTML.trim();
+            plainFacts = featuredEl.textContent.trim();
           }
         }
-      }
 
-      if (items.length === 0) {
-        for (const key of Object.keys(rootQuery)) {
-          if (key.startsWith("searchHaystack")) {
-            const val = rootQuery[key];
-            if (val && Array.isArray(val.items)) {
-              items = val.items.map((ref) => {
-                if (ref && ref.__ref) return apolloState[ref.__ref] || ref;
-                return ref;
-              });
+        // Last fallback: any substantial body-text element
+        if (!plainFacts) {
+          const bodyTexts = card.querySelectorAll('[class*="body-text"]');
+          for (const bt of bodyTexts) {
+            const txt = bt.textContent.trim();
+            if (txt.length > 30 && !/^Jurisprudência|^Acórdão|^publicado/i.test(txt)) {
+              highlight = bt.innerHTML.trim();
+              plainFacts = txt;
               break;
             }
           }
         }
+
+        // Tags from snippet-tags
+        const tagsEl = card.querySelector('[class*="snippet-tags"]');
+        const thesisType = tagsEl ? tagsEl.textContent.trim() : "";
+
+        items.push({
+          docId: docId,
+          court: court,
+          title: title,
+          type: type,
+          date: date,
+          url: cardUrl,
+          slug: "",
+          highlight: highlight,
+          plainFacts: plainFacts,
+          isMandatoryPrecedent: isMandatory,
+          thesisType: thesisType,
+          _matchCount: 1,
+          _queries: [],
+        });
       }
 
-      return items
-        .map((item) => {
-          const d = item?.data || item;
-          if (!d || !d.docId) return null;
-          return {
-            docId: d.docId || "",
-            court: d.court || "",
-            title: d.title || "",
-            type: d.type || "",
-            date: d.date || "",
-            url: d.url || "",
-            slug: d.slug || "",
-            highlight: d.highlight || "",
-            plainFacts: d.addons?.plainFacts || d.plainFacts || "",
-            isMandatoryPrecedent: d.isMandatoryPrecedent || false,
-            thesisType: d.thesisType || "",
-            _matchCount: 1,
-            _queries: [],
-          };
-        })
-        .filter(Boolean);
+      return items;
     } catch (e) {
       console.warn("[JusBrasil IA] Erro ao extrair resultados:", e);
       return [];
@@ -1005,11 +1031,14 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
   }
 
   function formatarData(dateVal) {
+    if (!dateVal) return "";
+    // Already in DD/MM/YYYY format from HTML parsing
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) return dateVal;
     try {
       const d = typeof dateVal === "number" ? new Date(dateVal) : new Date(dateVal);
-      if (isNaN(d.getTime())) return "";
+      if (isNaN(d.getTime())) return String(dateVal);
       return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-    } catch (e) { return ""; }
+    } catch (e) { return String(dateVal); }
   }
 
   function escapeHtml(str) {
