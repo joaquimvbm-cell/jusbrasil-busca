@@ -10,6 +10,7 @@ import os
 import ssl
 import urllib.request
 import webbrowser
+import threading
 
 # ============================================================
 # CONFIG
@@ -249,28 +250,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
 # ============================================================
 # MAIN
 # ============================================================
-PORT_HTTPS = 8768
-CERT_FILE = os.path.join(STATIC_DIR, "server.crt")
-KEY_FILE = os.path.join(STATIC_DIR, "server.key")
-
 if __name__ == "__main__":
-    import threading
+    # Matar processo anterior na mesma porta, se houver
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["lsof", "-ti", f":{PORT}"],
+            capture_output=True, text=True
+        )
+        if result.stdout.strip():
+            for pid in result.stdout.strip().split("\n"):
+                subprocess.run(["kill", "-9", pid], capture_output=True)
+            import time
+            time.sleep(0.5)
+    except Exception:
+        pass
 
-    # HTTP server (para setup page)
-    server_http = http.server.HTTPServer(("127.0.0.1", PORT), Handler)
-
-    # HTTPS server (para bookmarklet no JusBrasil HTTPS)
-    server_https = None
-    if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
-        server_https = http.server.HTTPServer(("127.0.0.1", PORT_HTTPS), Handler)
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ctx.load_cert_chain(CERT_FILE, KEY_FILE)
-        server_https.socket = ctx.wrap_socket(server_https.socket, server_side=True)
+    server = http.server.HTTPServer(("127.0.0.1", PORT), Handler)
 
     print(f"\n  JusBrasil Busca Inteligente")
-    print(f"  HTTP:  http://localhost:{PORT}")
-    if server_https:
-        print(f"  HTTPS: https://localhost:{PORT_HTTPS}")
+    print(f"  http://localhost:{PORT}")
     print(f"  Ctrl+C para parar\n")
 
     try:
@@ -278,15 +277,8 @@ if __name__ == "__main__":
     except Exception:
         pass
 
-    # Rodar HTTPS em thread separada
-    if server_https:
-        t = threading.Thread(target=server_https.serve_forever, daemon=True)
-        t.start()
-
     try:
-        server_http.serve_forever()
+        server.serve_forever()
     except KeyboardInterrupt:
         print("\nServidor encerrado.")
-        server_http.server_close()
-        if server_https:
-            server_https.server_close()
+        server.server_close()

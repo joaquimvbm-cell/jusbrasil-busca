@@ -182,57 +182,9 @@
   API key configurada no navegador (localStorage)
 </div>
 
+<!-- Pagina estatica — nao precisa de servidor local para funcionar -->
 <script>
-const API = 'http://localhost:8767/api';
-
-async function init() {
-  try {
-    const resp = await fetch(`${API}/status`);
-    const data = await resp.json();
-    if (data.has_api_key) {
-      document.getElementById('setup-desc').innerHTML =
-        `API Key configurada: <code>${data.api_key_preview}</code> — <a href="#" onclick="resetKey();return false">trocar</a>`;
-      document.querySelector('.input-row').style.display = 'none';
-      document.getElementById('key-status').innerHTML =
-        '<div class="status-ok">Pronto! Agora instale o bookmarklet (passo 2).</div>';
-    }
-  } catch(e) {
-    document.getElementById('key-status').innerHTML =
-      '<div class="status-err">Servidor nao encontrado. Verifique se o servidor esta rodando.</div>';
-  }
-}
-init();
-
-document.getElementById('save-key-btn').addEventListener('click', async () => {
-  const key = document.getElementById('api-key-input').value.trim();
-  if (!key) return;
-  try {
-    const resp = await fetch(`${API}/salvar-key`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({api_key: key})
-    });
-    const data = await resp.json();
-    if (data.status === 'ok') {
-      document.getElementById('key-status').innerHTML =
-        '<div class="status-ok">' + data.message + ' Agora instale o bookmarklet (passo 2).</div>';
-    } else {
-      document.getElementById('key-status').innerHTML =
-        '<div class="status-err">' + (data.error || 'Erro') + '</div>';
-    }
-  } catch(e) {
-    document.getElementById('key-status').innerHTML =
-      '<div class="status-err">Erro de conexao com o servidor.</div>';
-  }
-});
-
-function resetKey() {
-  document.getElementById('setup-desc').innerHTML =
-    'Acesse <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a>, crie uma key e cole abaixo.';
-  document.querySelector('.input-row').style.display = 'flex';
-  document.getElementById('api-key-input').value = '';
-  document.getElementById('key-status').innerHTML = '';
-}
+  console.log('JusBrasil Busca Inteligente — Setup page loaded');
 </script>
 </body>
 </html>

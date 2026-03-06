@@ -393,14 +393,11 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
     const data = await resp.json();
     let text = data.content[0].text.trim();
 
-    // Limpar possivel markdown
-    if (text.startsWith("```")) {
-      text = text.split("\n", 2)[1] || text.substring(3);
+    // Extrair JSON de dentro de markdown (```json ... ```) ou texto
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      text = jsonMatch[0];
     }
-    if (text.endsWith("```")) {
-      text = text.slice(0, -3);
-    }
-    text = text.trim();
 
     return JSON.parse(text);
   }
