@@ -619,30 +619,63 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
         throw new Error("Claude nao gerou nenhuma query de busca.");
       }
 
-      // 2. Buscar no JusBrasil (paralelo, batches de 3)
+      // 2. Buscar no JusBrasil (sequencial com delay para evitar rate limit)
       const todosResultados = [];
       const total = queries.length;
       let concluidas = 0;
+      let bloqueadas = 0;
 
       mostrarProgresso(0, total, "Buscando 0/" + total + " queries...");
 
-      const BATCH_SIZE = 3;
+      const BATCH_SIZE = 2;
+      const DELAY_MS = 2500;
+      const RETRY_DELAY_MS = 5000;
+
       for (let i = 0; i < queries.length; i += BATCH_SIZE) {
         const batch = queries.slice(i, i + BATCH_SIZE);
         const promessas = batch.map((q) => buscarJusBrasil(q));
         const resultados = await Promise.allSettled(promessas);
 
+        let batchBloqueada = false;
         resultados.forEach((r, idx) => {
           concluidas++;
-          if (r.status === "fulfilled" && r.value.length > 0) {
-            r.value.forEach((item) => { item._query = batch[idx]; });
-            todosResultados.push(...r.value);
+          if (r.status === "fulfilled") {
+            if (r.value.length > 0) {
+              r.value.forEach((item) => { item._query = batch[idx]; });
+              todosResultados.push(...r.value);
+            } else if (r.value._blocked) {
+              bloqueadas++;
+              batchBloqueada = true;
+            }
           }
-          mostrarProgresso(concluidas, total, "Buscando " + concluidas + "/" + total + " queries...");
+          const msg = bloqueadas > 0
+            ? "Buscando " + concluidas + "/" + total + " (" + bloqueadas + " bloqueadas por rate limit)..."
+            : "Buscando " + concluidas + "/" + total + " queries...";
+          mostrarProgresso(concluidas, total, msg);
         });
 
+        // Se batch foi bloqueada, retry com delay maior
+        if (batchBloqueada && i + BATCH_SIZE <= queries.length) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          // Retry as queries bloqueadas
+          for (let j = 0; j < batch.length; j++) {
+            const r = resultados[j];
+            if (r.status === "fulfilled" && r.value._blocked) {
+              try {
+                const retryResult = await buscarJusBrasil(batch[j]);
+                if (retryResult.length > 0 && !retryResult._blocked) {
+                  retryResult.forEach((item) => { item._query = batch[j]; });
+                  todosResultados.push(...retryResult);
+                  bloqueadas--;
+                }
+              } catch (e) {}
+              await new Promise((r) => setTimeout(r, DELAY_MS));
+            }
+          }
+        }
+
         if (i + BATCH_SIZE < queries.length) {
-          await new Promise((r) => setTimeout(r, 500));
+          await new Promise((r) => setTimeout(r, DELAY_MS));
         }
       }
 
@@ -654,8 +687,15 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
       state.resultados = scored;
 
       // 4. Renderizar
-      mostrarProgresso(total, total, "Concluido!");
-      setTimeout(() => esconderElemento("jbia-progress"), 1000);
+      if (bloqueadas > 0 && scored.length === 0) {
+        mostrarProgresso(total, total, "Rate limit! Aguarde 1 min e tente novamente.");
+      } else if (bloqueadas > 0) {
+        mostrarProgresso(total, total, "Concluido! (" + bloqueadas + " queries bloqueadas por rate limit)");
+        setTimeout(() => esconderElemento("jbia-progress"), 5000);
+      } else {
+        mostrarProgresso(total, total, "Concluido!");
+        setTimeout(() => esconderElemento("jbia-progress"), 1000);
+      }
 
       mostrarStats(scored);
       mostrarFiltros();
@@ -689,9 +729,24 @@ Os termos_destaque devem ter 4-6 itens com cores distintas:
       headers: { Accept: "text/html" },
     });
 
+    // Rate limit ou Cloudflare challenge
+    if (resp.status === 429 || resp.status === 403) {
+      const blocked = [];
+      blocked._blocked = true;
+      return blocked;
+    }
+
     if (!resp.ok) return [];
 
     const html = await resp.text();
+
+    // Detectar Cloudflare challenge no corpo (pode vir com status 200)
+    if (html.includes("etapa de segurança") || html.includes("cf_chl_opt")) {
+      const blocked = [];
+      blocked._blocked = true;
+      return blocked;
+    }
+
     return extrairResultadosDOM(html);
   }
 
