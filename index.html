@@ -142,13 +142,9 @@
     <h2><span class="step-num">1</span> Configurar API Key</h2>
     <p id="setup-desc">
       Voce precisa de uma API key da Anthropic para usar a IA.<br>
-      Acesse <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a>, crie uma key e cole abaixo.
+      Acesse <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a> e crie uma key.<br><br>
+      <b>A key sera configurada diretamente no painel</b> quando voce clicar no bookmarklet no JusBrasil (passo 2). Nao precisa de servidor local!
     </p>
-    <div class="input-row">
-      <input type="password" id="api-key-input" placeholder="sk-ant-api03-...">
-      <button class="btn" id="save-key-btn">Salvar</button>
-    </div>
-    <div id="key-status"></div>
   </div>
 
   <!-- STEP 2: BOOKMARKLET -->
@@ -157,7 +153,7 @@
     <p>Arraste o botao abaixo para a <b>barra de favoritos</b> do seu navegador:</p>
 
     <div class="bookmarklet-area">
-      <a class="bookmarklet-link" href="javascript:void(fetch('http://localhost:8767/overlay.js?t='+Date.now()).then(r=>r.text()).then(c=>eval(c)).catch(e=>alert('Erro: servidor nao encontrado. Verifique se esta rodando.')))">
+      <a class="bookmarklet-link" href="javascript:void(fetch('https://raw.githubusercontent.com/joaquimvbm-cell/jusbrasil-busca/main/overlay.js?t='+Date.now()).then(r=>r.text()).then(c=>eval(c)).catch(e=>alert('Erro ao carregar script. Verifique sua conexao.')))">
         JusBrasil IA
       </a>
       <div class="bookmarklet-hint">Arraste este botao para a barra de favoritos</div>
@@ -183,7 +179,7 @@
 
 <div class="footer">
   JusBrasil Busca Inteligente — Powered by Claude AI<br>
-  Servidor rodando em localhost:8767
+  API key configurada no navegador (localStorage)
 </div>
 
 <script>
