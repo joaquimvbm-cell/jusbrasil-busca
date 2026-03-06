@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JusBrasil Busca Inteligente — Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy-900: #0a1628;
+    --navy-800: #0f1d34;
+    --navy-700: #162844;
+    --cyan-500: #06b6d4;
+    --cyan-400: #22d3ee;
+    --green-500: #22c55e;
+    --green-600: #16a34a;
+    --gray-50: #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-400: #94a3b8;
+    --gray-500: #64748b;
+    --gray-600: #475569;
+    --white: #ffffff;
+    --text: #1e293b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--gray-100); color: var(--text); min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+    color: var(--white);
+    text-align: center;
+    padding: 48px 24px;
+    border-bottom: 3px solid var(--cyan-500);
+  }
+  .header h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+  .header h1 span { color: var(--cyan-400); }
+  .header p { color: var(--gray-400); font-size: 15px; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+
+  .main { max-width: 700px; margin: -32px auto 40px; padding: 0 20px; position: relative; z-index: 2; }
+
+  .card {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 18px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card p { font-size: 14px; color: var(--gray-600); line-height: 1.7; margin-bottom: 12px; }
+  .card a { color: var(--cyan-500); font-weight: 500; }
+
+  .step-num {
+    width: 28px; height: 28px;
+    background: var(--cyan-500);
+    color: var(--white);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .input-row { display: flex; gap: 10px; margin-bottom: 8px; }
+  .input-row input {
+    flex: 1; padding: 12px 16px;
+    border: 2px solid var(--gray-200);
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: monospace;
+  }
+  .input-row input:focus { outline: none; border-color: var(--cyan-500); }
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    background: linear-gradient(135deg, var(--cyan-500), #0891b2);
+    color: var(--white);
+  }
+  .btn:hover { background: linear-gradient(135deg, #0891b2, #0e7490); }
+  #key-status { margin-top: 8px; font-size: 13px; }
+  .status-ok { color: var(--green-600); font-weight: 500; }
+  .status-err { color: #ef4444; font-weight: 500; }
+
+  .bookmarklet-area {
+    background: linear-gradient(135deg, rgba(6,182,212,.06), rgba(6,182,212,.12));
+    border: 2px dashed var(--cyan-500);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin: 16px 0;
+  }
+  .bookmarklet-link {
+    display: inline-block;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--navy-800), var(--navy-700));
+    color: var(--cyan-400);
+    text-decoration: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: grab;
+    border: 2px solid var(--cyan-500);
+    transition: all .2s;
+  }
+  .bookmarklet-link:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(6,182,212,.3); }
+  .bookmarklet-hint { font-size: 12px; color: var(--gray-500); margin-top: 10px; }
+
+  .steps { list-style: none; }
+  .steps li {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 10px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--gray-600);
+  }
+
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>JusBrasil <span>Busca Inteligente</span></h1>
+  <p>Use Inteligencia Artificial para encontrar jurisprudencia relevante no JusBrasil com precisao e eficiencia.</p>
+</div>
+
+<div class="main">
+  <!-- STEP 1: API KEY -->
+  <div class="card">
+    <h2><span class="step-num">1</span> Configurar API Key</h2>
+    <p id="setup-desc">
+      Voce precisa de uma API key da Anthropic para usar a IA.<br>
+      Acesse <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a>, crie uma key e cole abaixo.
+    </p>
+    <div class="input-row">
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-...">
+      <button class="btn" id="save-key-btn">Salvar</button>
+    </div>
+    <div id="key-status"></div>
+  </div>
+
+  <!-- STEP 2: BOOKMARKLET -->
+  <div class="card">
+    <h2><span class="step-num">2</span> Instalar o Bookmarklet</h2>
+    <p>Arraste o botao abaixo para a <b>barra de favoritos</b> do seu navegador:</p>
+
+    <div class="bookmarklet-area">
+      <a class="bookmarklet-link" href="javascript:void(fetch('http://localhost:8767/overlay.js?t='+Date.now()).then(r=>r.text()).then(c=>eval(c)).catch(e=>alert('Erro: servidor nao encontrado. Verifique se esta rodando.')))">
+        JusBrasil IA
+      </a>
+      <div class="bookmarklet-hint">Arraste este botao para a barra de favoritos</div>
+    </div>
+
+    <p style="font-size:13px; color:var(--gray-500);">
+      Se a barra de favoritos nao estiver visivel: <b>Cmd+Shift+B</b> (Mac) ou <b>Ctrl+Shift+B</b> (Windows)
+    </p>
+  </div>
+
+  <!-- STEP 3: COMO USAR -->
+  <div class="card">
+    <h2><span class="step-num">3</span> Como usar</h2>
+    <ol class="steps">
+      <li><span class="step-num">a</span> Abra o <a href="https://www.jusbrasil.com.br/jurisprudencia/" target="_blank">JusBrasil Jurisprudencia</a> e faca login com sua conta</li>
+      <li><span class="step-num">b</span> Clique no bookmarklet "JusBrasil IA" na barra de favoritos</li>
+      <li><span class="step-num">c</span> Um painel vai aparecer no lado direito da tela</li>
+      <li><span class="step-num">d</span> Descreva seu caso em linguagem natural e clique "Pesquisar"</li>
+      <li><span class="step-num">e</span> A IA gera as queries, busca automaticamente e pontua os resultados</li>
+    </ol>
+  </div>
+</div>
+
+<div class="footer">
+  JusBrasil Busca Inteligente — Powered by Claude AI<br>
+  Servidor rodando em localhost:8767
+</div>
+
+<script>
+const API = 'http://localhost:8767/api';
+
+async function init() {
+  try {
+    const resp = await fetch(`${API}/status`);
+    const data = await resp.json();
+    if (data.has_api_key) {
+      document.getElementById('setup-desc').innerHTML =
+        `API Key configurada: <code>${data.api_key_preview}</code> — <a href="#" onclick="resetKey();return false">trocar</a>`;
+      document.querySelector('.input-row').style.display = 'none';
+      document.getElementById('key-status').innerHTML =
+        '<div class="status-ok">Pronto! Agora instale o bookmarklet (passo 2).</div>';
+    }
+  } catch(e) {
+    document.getElementById('key-status').innerHTML =
+      '<div class="status-err">Servidor nao encontrado. Verifique se o servidor esta rodando.</div>';
+  }
+}
+init();
+
+document.getElementById('save-key-btn').addEventListener('click', async () => {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) return;
+  try {
+    const resp = await fetch(`${API}/salvar-key`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: key})
+    });
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      document.getElementById('key-status').innerHTML =
+        '<div class="status-ok">' + data.message + ' Agora instale o bookmarklet (passo 2).</div>';
+    } else {
+      document.getElementById('key-status').innerHTML =
+        '<div class="status-err">' + (data.error || 'Erro') + '</div>';
+    }
+  } catch(e) {
+    document.getElementById('key-status').innerHTML =
+      '<div class="status-err">Erro de conexao com o servidor.</div>';
+  }
+});
+
+function resetKey() {
+  document.getElementById('setup-desc').innerHTML =
+    'Acesse <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a>, crie uma key e cole abaixo.';
+  document.querySelector('.input-row').style.display = 'flex';
+  document.getElementById('api-key-input').value = '';
+  document.getElementById('key-status').innerHTML = '';
+}
+</script>
+</body>
+</html>
